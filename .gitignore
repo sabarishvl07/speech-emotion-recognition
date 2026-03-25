@@ -1,0 +1,6 @@
+venv/
+data/Audio_Speech_Actors_01-24/
+__pycache__/
+*.pyc
+.env
+notebooks/

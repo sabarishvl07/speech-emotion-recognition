@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Speech Emotion Recognition</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #1a1a2e, #16213e, #0f3460);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+        }
+
+        .container {
+            background: rgba(255,255,255,0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 20px;
+            padding: 40px;
+            width: 90%;
+            max-width: 600px;
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 2rem;
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, #e94560, #0f3460);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        p.subtitle {
+            color: rgba(255,255,255,0.6);
+            margin-bottom: 30px;
+        }
+
+        .upload-area {
+            border: 2px dashed rgba(255,255,255,0.3);
+            border-radius: 15px;
+            padding: 40px;
+            margin-bottom: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .upload-area:hover {
+            border-color: #e94560;
+            background: rgba(233,69,96,0.05);
+        }
+
+        .upload-area input { display: none; }
+
+        .upload-icon { font-size: 3rem; margin-bottom: 10px; }
+
+        .upload-text {
+            color: rgba(255,255,255,0.7);
+            font-size: 0.95rem;
+        }
+
+        .btn {
+            background: linear-gradient(90deg, #e94560, #c23152);
+            color: white;
+            border: none;
+            padding: 14px 40px;
+            border-radius: 50px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        .btn:hover { transform: translateY(-2px); opacity: 0.9; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .result {
+            margin-top: 30px;
+            padding: 25px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 15px;
+            display: none;
+        }
+
+        .emotion-label {
+            font-size: 2.5rem;
+            font-weight: bold;
+            text-transform: capitalize;
+            margin: 10px 0;
+        }
+
+        .emotion-icons {
+            font-size: 3rem;
+            margin: 10px 0;
+        }
+
+        .status {
+            color: rgba(255,255,255,0.6);
+            font-size: 0.9rem;
+            margin-top: 15px;
+        }
+
+        .file-name {
+            color: #e94560;
+            font-size: 0.85rem;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Speech Emotion Recognition</h1>
+        <p class="subtitle">Upload a voice recording to detect the emotion</p>
+
+        <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+            <div class="upload-icon">🎤</div>
+            <div class="upload-text">Click to upload a .wav audio file</div>
+            <input type="file" id="fileInput" accept=".wav" onchange="handleFile(event)">
+            <div class="file-name" id="fileName"></div>
+        </div>
+
+        <button class="btn" id="predictBtn" onclick="predict()" disabled>
+            Analyze Emotion
+        </button>
+
+        <div class="result" id="result">
+            <div class="emotion-icons" id="emotionIcon"></div>
+            <div class="emotion-label" id="emotionLabel"></div>
+            <div class="status">Emotion detected successfully!</div>
+        </div>
+    </div>
+
+    <script>
+        const emotionIcons = {
+            angry: "😠", calm: "😌", happy: "😊",
+            sad: "😢", fearful: "😨", disgust: "🤢",
+            surprised: "😲", neutral: "😐"
+        };
+
+        let selectedFile = null;
+
+        function handleFile(event) {
+            selectedFile = event.target.files[0];
+            if (selectedFile) {
+                document.getElementById("fileName").textContent = selectedFile.name;
+                document.getElementById("predictBtn").disabled = false;
+            }
+        }
+
+        async function predict() {
+            if (!selectedFile) return;
+
+            const btn = document.getElementById("predictBtn");
+            btn.textContent = "Analyzing...";
+            btn.disabled = true;
+
+            const formData = new FormData();
+            formData.append("file", selectedFile);
+
+            try {
+                const response = await fetch("http://127.0.0.1:8000/predict", {
+                    method: "POST",
+                    body: formData
+                });
+
+                const data = await response.json();
+                const emotion = data.emotion;
+
+                document.getElementById("emotionIcon").textContent = emotionIcons[emotion] || "🎭";
+                document.getElementById("emotionLabel").textContent = emotion;
+                document.getElementById("result").style.display = "block";
+
+            } catch (error) {
+                alert("Error connecting to API. Make sure the backend is running!");
+            }
+
+            btn.textContent = "Analyze Emotion";
+            btn.disabled = false;
+        }
+    </script>
+</body>
+</html>
