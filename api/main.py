@@ -6,10 +6,11 @@ import joblib
 import tempfile
 import os
 
-# Load the trained model and scaler
-model = joblib.load("models/svm_model.pkl")
-scaler = joblib.load("models/scaler.pkl")
 
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+model = joblib.load(os.path.join(BASE_DIR, "models", "svm_model.pkl"))
+scaler = joblib.load(os.path.join(BASE_DIR, "models", "scaler.pkl"))
 # Initialize FastAPI app
 app = FastAPI(title="Speech Emotion Recognition API")
 
