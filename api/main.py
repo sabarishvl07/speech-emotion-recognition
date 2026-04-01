@@ -47,7 +47,6 @@ def extract_features(file_path):
 @app.get("/")
 def home():
     return {"message": "Speech Emotion Recognition API is running!"}
-
 @app.post("/predict")
 async def predict_emotion(file: UploadFile = File(...)):
     # Save uploaded file temporarily
@@ -61,10 +60,26 @@ async def predict_emotion(file: UploadFile = File(...)):
     features_scaled = scaler.transform([features])
     prediction = model.predict(features_scaled)[0]
     
+    # Get confidence scores for all emotions
+    probabilities = model.decision_function(features_scaled)[0]
+    
+    # Normalize to 0-100 range
+    prob_min = probabilities.min()
+    prob_max = probabilities.max()
+    normalized = (probabilities - prob_min) / (prob_max - prob_min) * 100
+    
+    # Map to emotion labels
+    emotions = model.classes_
+    confidence_scores = {
+        emotion: round(float(score), 2)
+        for emotion, score in zip(emotions, normalized)
+    }
+    
     # Clean up temp file
     os.unlink(tmp_path)
     
     return {
         "emotion": prediction,
+        "confidence_scores": confidence_scores,
         "message": f"Detected emotion: {prediction}"
     }
