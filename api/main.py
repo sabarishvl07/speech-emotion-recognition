@@ -7,8 +7,12 @@ import tempfile
 import os
 from pydub import AudioSegment
 
-# Point pydub directly to ffmpeg exe
-AudioSegment.converter = r"C:\Users\info\Downloads\ffmpeg-8.1-essentials_build\ffmpeg-8.1-essentials_build\bin\ffmpeg.exe"
+# Works both locally and on Render
+ffmpeg_local = r"C:\Users\info\Downloads\ffmpeg-8.1-essentials_build\ffmpeg-8.1-essentials_build\bin\ffmpeg.exe"
+if os.path.exists(ffmpeg_local):
+    AudioSegment.converter = ffmpeg_local
+else:
+    AudioSegment.converter = "ffmpeg"
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 model = joblib.load(os.path.join(BASE_DIR, "models", "svm_model.pkl"))
@@ -45,7 +49,6 @@ async def predict_emotion(file: UploadFile = File(...)):
     contents = await file.read()
     filename = file.filename or "recording"
 
-    # Save original file
     is_webm = "webm" in filename or "webm" in (file.content_type or "")
     suffix = ".webm" if is_webm else ".wav"
 
@@ -53,7 +56,6 @@ async def predict_emotion(file: UploadFile = File(...)):
         tmp.write(contents)
         tmp_path = tmp.name
 
-    # Convert webm to wav using pydub
     if is_webm:
         wav_path = tmp_path.replace(".webm", "_converted.wav")
         audio = AudioSegment.from_file(tmp_path, format="webm")
@@ -61,7 +63,6 @@ async def predict_emotion(file: UploadFile = File(...)):
         os.unlink(tmp_path)
         tmp_path = wav_path
 
-    # Extract features and predict
     features = extract_features(tmp_path)
     features_scaled = scaler.transform([features])
     prediction = model.predict(features_scaled)[0]
