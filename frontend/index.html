@@ -42,11 +42,17 @@
             margin-bottom: 30px;
         }
 
+        .input-section {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
         .upload-area {
+            flex: 1;
             border: 2px dashed rgba(255,255,255,0.3);
             border-radius: 15px;
-            padding: 40px;
-            margin-bottom: 20px;
+            padding: 30px 20px;
             cursor: pointer;
             transition: all 0.3s;
         }
@@ -57,11 +63,56 @@
         }
 
         .upload-area input { display: none; }
-        .upload-icon { font-size: 3rem; margin-bottom: 10px; }
+        .upload-icon { font-size: 2.5rem; margin-bottom: 8px; }
 
         .upload-text {
             color: rgba(255,255,255,0.7);
-            font-size: 0.95rem;
+            font-size: 0.85rem;
+        }
+
+        .record-area {
+            flex: 1;
+            border: 2px dashed rgba(255,255,255,0.3);
+            border-radius: 15px;
+            padding: 30px 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .record-area:hover {
+            border-color: #e94560;
+            background: rgba(233,69,96,0.05);
+        }
+
+        .record-area.recording {
+            border-color: #e94560;
+            background: rgba(233,69,96,0.1);
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(233,69,96,0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(233,69,96,0); }
+            100% { box-shadow: 0 0 0 0 rgba(233,69,96,0); }
+        }
+
+        .record-icon { font-size: 2.5rem; margin-bottom: 8px; }
+
+        .record-text {
+            color: rgba(255,255,255,0.7);
+            font-size: 0.85rem;
+        }
+
+        .timer {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #e94560;
+            margin-top: 5px;
+            display: none;
         }
 
         .btn {
@@ -110,7 +161,6 @@
             margin-top: 10px;
         }
 
-        /* Bar Chart */
         .chart-title {
             font-size: 0.95rem;
             color: rgba(255,255,255,0.7);
@@ -154,18 +204,46 @@
             color: rgba(255,255,255,0.7);
             text-align: left;
         }
+
+        .divider {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 15px 0;
+            color: rgba(255,255,255,0.4);
+            font-size: 0.85rem;
+        }
+
+        .divider::before, .divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: rgba(255,255,255,0.15);
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>Speech Emotion Recognition</h1>
-        <p class="subtitle">Upload a voice recording to detect the emotion</p>
+        <p class="subtitle">Upload a file or record your voice to detect emotion</p>
 
-        <div class="upload-area" onclick="document.getElementById('fileInput').click()">
-            <div class="upload-icon">🎤</div>
-            <div class="upload-text">Click to upload a .wav audio file</div>
-            <input type="file" id="fileInput" accept=".wav" onchange="handleFile(event)">
-            <div class="file-name" id="fileName"></div>
+        <div class="input-section">
+            <!-- Upload -->
+            <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+                <div class="upload-icon">📁</div>
+                <div class="upload-text">Click to upload a .wav file</div>
+                <input type="file" id="fileInput" accept=".wav" onchange="handleFile(event)">
+                <div class="file-name" id="fileName"></div>
+            </div>
+
+            <div class="divider" style="flex-direction:column; margin:0;">OR</div>
+
+            <!-- Record -->
+            <div class="record-area" id="recordArea" onclick="toggleRecord()">
+                <div class="record-icon" id="recordIcon">🎙️</div>
+                <div class="record-text" id="recordText">Click to record 3 seconds</div>
+                <div class="timer" id="timer">3</div>
+            </div>
         </div>
 
         <button class="btn" id="predictBtn" onclick="predict()" disabled>
@@ -175,7 +253,7 @@
         <div class="result" id="result">
             <div class="emotion-icons" id="emotionIcon"></div>
             <div class="emotion-label" id="emotionLabel"></div>
-            <div class="status">Emotion detected successfully!</div>
+            <div class="status" id="statusText">Emotion detected successfully!</div>
             <div class="chart-title">Confidence scores for all emotions:</div>
             <div id="barChart"></div>
         </div>
@@ -189,14 +267,9 @@
         };
 
         const emotionColors = {
-            angry: "#e94560",
-            calm: "#4ecdc4",
-            happy: "#ffe66d",
-            sad: "#4a90d9",
-            fearful: "#9b59b6",
-            disgust: "#2ecc71",
-            surprised: "#f39c12",
-            neutral: "#95a5a6"
+            angry: "#e94560", calm: "#4ecdc4", happy: "#ffe66d",
+            sad: "#4a90d9", fearful: "#9b59b6", disgust: "#2ecc71",
+            surprised: "#f39c12", neutral: "#95a5a6"
         };
 
         const emotionBg = {
@@ -211,25 +284,81 @@
         };
 
         let selectedFile = null;
+        let mediaRecorder = null;
+        let isRecording = false;
+        let recordedBlob = null;
 
         function handleFile(event) {
             selectedFile = event.target.files[0];
+            recordedBlob = null;
             if (selectedFile) {
                 document.getElementById("fileName").textContent = selectedFile.name;
                 document.getElementById("predictBtn").disabled = false;
+                document.getElementById("recordText").textContent = "Click to record 3 seconds";
+                document.getElementById("recordIcon").textContent = "🎙️";
+            }
+        }
+
+        async function toggleRecord() {
+            if (isRecording) return;
+
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                isRecording = true;
+
+                const recordArea = document.getElementById("recordArea");
+                const recordText = document.getElementById("recordText");
+                const recordIcon = document.getElementById("recordIcon");
+                const timerEl = document.getElementById("timer");
+                const predictBtn = document.getElementById("predictBtn");
+
+                recordArea.classList.add("recording");
+                recordIcon.textContent = "⏺️";
+                timerEl.style.display = "block";
+                predictBtn.disabled = true;
+
+                // Countdown timer
+                let count = 3;
+                timerEl.textContent = count;
+                const countdown = setInterval(() => {
+                    count--;
+                    timerEl.textContent = count;
+                    if (count <= 0) clearInterval(countdown);
+                }, 1000);
+
+                // Record audio
+                const chunks = [];
+                mediaRecorder = new MediaRecorder(stream);
+                mediaRecorder.ondataavailable = e => chunks.push(e.data);
+                mediaRecorder.onstop = () => {
+                    recordedBlob = new Blob(chunks, { type: "audio/wav" });
+                    selectedFile = null;
+                    document.getElementById("fileName").textContent = "";
+                    recordArea.classList.remove("recording");
+                    recordIcon.textContent = "✅";
+                    recordText.textContent = "Recording done! Click Analyze";
+                    timerEl.style.display = "none";
+                    predictBtn.disabled = false;
+                    isRecording = false;
+                    stream.getTracks().forEach(track => track.stop());
+                };
+
+                mediaRecorder.start();
+                setTimeout(() => mediaRecorder.stop(), 3000);
+
+            } catch (err) {
+                alert("Microphone access denied! Please allow microphone access.");
+                isRecording = false;
             }
         }
 
         function renderBarChart(scores, topEmotion) {
             const chart = document.getElementById("barChart");
             chart.innerHTML = "";
-
             const sorted = Object.entries(scores).sort((a, b) => b[1] - a[1]);
-
             sorted.forEach(([emotion, score]) => {
                 const color = emotionColors[emotion] || "#e94560";
                 const isTop = emotion === topEmotion;
-
                 chart.innerHTML += `
                     <div class="bar-container">
                         <div class="bar-label" style="${isTop ? 'font-weight:bold;color:white;' : ''}">${emotion}</div>
@@ -239,7 +368,6 @@
                         <div class="bar-score">${score.toFixed(1)}%</div>
                     </div>`;
             });
-
             setTimeout(() => {
                 sorted.forEach(([emotion, score]) => {
                     const bar = document.getElementById(`bar-${emotion}`);
@@ -249,17 +377,25 @@
         }
 
         async function predict() {
-            if (!selectedFile) return;
-
             const btn = document.getElementById("predictBtn");
             btn.textContent = "Analyzing...";
             btn.disabled = true;
 
             const formData = new FormData();
-            formData.append("file", selectedFile);
+
+            if (recordedBlob) {
+                formData.append("file", recordedBlob, "recording.wav");
+            } else if (selectedFile) {
+                formData.append("file", selectedFile);
+            } else {
+                alert("Please upload a file or record your voice!");
+                btn.textContent = "Analyze Emotion";
+                btn.disabled = false;
+                return;
+            }
 
             try {
-              const response = await fetch("https://speech-emotion-recognition-dd7d.onrender.com/predict", {
+                const response = await fetch("http://127.0.0.1:8000/predict", {
                     method: "POST",
                     body: formData
                 });
@@ -268,15 +404,10 @@
                 const emotion = data.emotion;
                 const scores = data.confidence_scores;
 
-                // Update emotion display
                 document.getElementById("emotionIcon").textContent = emotionIcons[emotion] || "🎭";
                 document.getElementById("emotionLabel").textContent = emotion;
                 document.getElementById("result").style.display = "block";
-
-                // Update background color
                 document.body.style.background = emotionBg[emotion] || emotionBg.neutral;
-
-                // Render bar chart
                 renderBarChart(scores, emotion);
 
             } catch (error) {

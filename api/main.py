@@ -5,16 +5,17 @@ import numpy as np
 import joblib
 import tempfile
 import os
+from pydub import AudioSegment
 
+# Point pydub directly to ffmpeg exe
+AudioSegment.converter = r"C:\Users\info\Downloads\ffmpeg-8.1-essentials_build\ffmpeg-8.1-essentials_build\bin\ffmpeg.exe"
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
 model = joblib.load(os.path.join(BASE_DIR, "models", "svm_model.pkl"))
 scaler = joblib.load(os.path.join(BASE_DIR, "models", "scaler.pkl"))
-# Initialize FastAPI app
+
 app = FastAPI(title="Speech Emotion Recognition API")
 
-# Allow frontend to talk to backend
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -24,60 +25,60 @@ app.add_middleware(
 
 def extract_features(file_path):
     signal, sample_rate = librosa.load(file_path, duration=3, offset=0.5)
-    
-    # MFCC
     mfcc = librosa.feature.mfcc(y=signal, sr=sample_rate, n_mfcc=40)
     mfcc_mean = np.mean(mfcc, axis=1)
-    
-    # Chroma
     chroma = librosa.feature.chroma_stft(y=signal, sr=sample_rate)
     chroma_mean = np.mean(chroma, axis=1)
-    
-    # ZCR
     zcr = librosa.feature.zero_crossing_rate(y=signal)
     zcr_mean = np.mean(zcr)
-    
-    # RMS Energy
     rms = librosa.feature.rms(y=signal)
     rms_mean = np.mean(rms)
-    
     features = np.concatenate([mfcc_mean, chroma_mean, [zcr_mean], [rms_mean]])
     return features
 
 @app.get("/")
 def home():
     return {"message": "Speech Emotion Recognition API is running!"}
+
 @app.post("/predict")
 async def predict_emotion(file: UploadFile = File(...)):
-    # Save uploaded file temporarily
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
-        contents = await file.read()
+    contents = await file.read()
+    filename = file.filename or "recording"
+
+    # Save original file
+    is_webm = "webm" in filename or "webm" in (file.content_type or "")
+    suffix = ".webm" if is_webm else ".wav"
+
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
         tmp.write(contents)
         tmp_path = tmp.name
-    
+
+    # Convert webm to wav using pydub
+    if is_webm:
+        wav_path = tmp_path.replace(".webm", "_converted.wav")
+        audio = AudioSegment.from_file(tmp_path, format="webm")
+        audio.export(wav_path, format="wav")
+        os.unlink(tmp_path)
+        tmp_path = wav_path
+
     # Extract features and predict
     features = extract_features(tmp_path)
     features_scaled = scaler.transform([features])
     prediction = model.predict(features_scaled)[0]
-    
-    # Get confidence scores for all emotions
+
     probabilities = model.decision_function(features_scaled)[0]
-    
-    # Normalize to 0-100 range
     prob_min = probabilities.min()
     prob_max = probabilities.max()
     normalized = (probabilities - prob_min) / (prob_max - prob_min) * 100
-    
-    # Map to emotion labels
+
     emotions = model.classes_
     confidence_scores = {
         emotion: round(float(score), 2)
         for emotion, score in zip(emotions, normalized)
     }
-    
-    # Clean up temp file
+
     os.unlink(tmp_path)
-    
+
     return {
         "emotion": prediction,
         "confidence_scores": confidence_scores,
