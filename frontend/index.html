@@ -1,422 +1,1030 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Speech Emotion Recognition</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        
-        body {
-            font-family: 'Segoe UI', sans-serif;
-            background: linear-gradient(135deg, #1a1a2e, #16213e, #0f3460);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            transition: background 1s ease;
-        }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SpeechSense — AI Emotion Detection</title>
+  <meta name="description" content="Detect human emotion from speech using AI. Upload audio or record your voice to get instant emotion analysis." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg-base: #070b14;
+      --bg-card: rgba(255,255,255,0.04);
+      --bg-card-hover: rgba(255,255,255,0.07);
+      --border: rgba(255,255,255,0.08);
+      --border-bright: rgba(255,255,255,0.16);
+      --text-primary: #f0f4ff;
+      --text-secondary: rgba(240,244,255,0.55);
+      --text-muted: rgba(240,244,255,0.3);
+      --accent: #6c63ff;
+      --accent-glow: rgba(108,99,255,0.35);
+      --red: #ff4d6d;
+      --radius-lg: 20px;
+      --radius-md: 14px;
+      --radius-sm: 10px;
+      --shadow: 0 8px 40px rgba(0,0,0,0.5);
+    }
 
-        .container {
-            background: rgba(255,255,255,0.05);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 20px;
-            padding: 40px;
-            width: 90%;
-            max-width: 650px;
-            text-align: center;
-        }
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
-        h1 {
-            font-size: 2rem;
-            margin-bottom: 10px;
-            background: linear-gradient(90deg, #e94560, #0f3460);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg-base);
+      min-height: 100vh;
+      color: var(--text-primary);
+      overflow-x: hidden;
+      transition: background 1.2s ease;
+    }
 
-        p.subtitle {
-            color: rgba(255,255,255,0.6);
-            margin-bottom: 30px;
-        }
+    /* ── Background orbs ── */
+    .orb {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(120px);
+      opacity: 0.18;
+      pointer-events: none;
+      transition: background 1.2s ease;
+      z-index: 0;
+    }
+    .orb-1 { width: 500px; height: 500px; background: #6c63ff; top: -150px; left: -150px; }
+    .orb-2 { width: 400px; height: 400px; background: #ff4d6d; bottom: -100px; right: -100px; }
 
-        .input-section {
-            display: flex;
-            gap: 15px;
-            margin-bottom: 20px;
-        }
+    /* ── Layout ── */
+    .page {
+      position: relative;
+      z-index: 1;
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 40px 20px 60px;
+    }
 
-        .upload-area {
-            flex: 1;
-            border: 2px dashed rgba(255,255,255,0.3);
-            border-radius: 15px;
-            padding: 30px 20px;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
+    /* ── Header ── */
+    header {
+      text-align: center;
+      margin-bottom: 36px;
+    }
+    .logo-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 50px;
+      padding: 6px 16px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+      margin-bottom: 18px;
+    }
+    .logo-dot { width: 7px; height: 7px; background: #6c63ff; border-radius: 50%; animation: blink 2s infinite; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+    h1 {
+      font-size: clamp(1.9rem, 5vw, 2.7rem);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1.1;
+      background: linear-gradient(135deg, #f0f4ff 0%, #a89cff 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 10px;
+    }
+    .subtitle {
+      color: var(--text-secondary);
+      font-size: 0.95rem;
+      font-weight: 400;
+    }
 
-        .upload-area:hover {
-            border-color: #e94560;
-            background: rgba(233,69,96,0.05);
-        }
+    /* ── Cards ── */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      padding: 24px;
+      margin-bottom: 16px;
+      transition: border-color 0.3s;
+    }
+    .card:hover { border-color: var(--border-bright); }
 
-        .upload-area input { display: none; }
-        .upload-icon { font-size: 2.5rem; margin-bottom: 8px; }
+    .card-label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 16px;
+    }
 
-        .upload-text {
-            color: rgba(255,255,255,0.7);
-            font-size: 0.85rem;
-        }
+    /* ── Waveform ── */
+    #waveform-canvas {
+      width: 100%;
+      height: 70px;
+      display: block;
+      border-radius: var(--radius-sm);
+    }
+    .waveform-idle {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 70px;
+      gap: 3px;
+    }
+    .waveform-idle span {
+      width: 3px;
+      border-radius: 3px;
+      background: var(--border-bright);
+      animation: idle-wave 1.4s ease-in-out infinite;
+    }
+    .waveform-idle span:nth-child(1){height:10px;animation-delay:0s}
+    .waveform-idle span:nth-child(2){height:20px;animation-delay:.1s}
+    .waveform-idle span:nth-child(3){height:30px;animation-delay:.2s}
+    .waveform-idle span:nth-child(4){height:18px;animation-delay:.3s}
+    .waveform-idle span:nth-child(5){height:35px;animation-delay:.4s}
+    .waveform-idle span:nth-child(6){height:22px;animation-delay:.5s}
+    .waveform-idle span:nth-child(7){height:28px;animation-delay:.6s}
+    .waveform-idle span:nth-child(8){height:14px;animation-delay:.7s}
+    .waveform-idle span:nth-child(9){height:32px;animation-delay:.8s}
+    .waveform-idle span:nth-child(10){height:18px;animation-delay:.9s}
+    .waveform-idle span:nth-child(11){height:25px;animation-delay:.8s}
+    .waveform-idle span:nth-child(12){height:12px;animation-delay:.7s}
+    @keyframes idle-wave { 0%,100%{transform:scaleY(1)} 50%{transform:scaleY(0.4)} }
 
-        .record-area {
-            flex: 1;
-            border: 2px dashed rgba(255,255,255,0.3);
-            border-radius: 15px;
-            padding: 30px 20px;
-            cursor: pointer;
-            transition: all 0.3s;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-        }
+    /* ── Input row ── */
+    .input-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 16px;
+    }
 
-        .record-area:hover {
-            border-color: #e94560;
-            background: rgba(233,69,96,0.05);
-        }
+    .input-zone {
+      border: 1px dashed var(--border-bright);
+      border-radius: var(--radius-md);
+      padding: 20px 16px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.25s;
+      position: relative;
+      overflow: hidden;
+    }
+    .input-zone:hover {
+      border-color: var(--accent);
+      background: rgba(108,99,255,0.06);
+    }
+    .input-zone.active {
+      border-color: var(--red);
+      background: rgba(255,77,109,0.08);
+    }
+    .input-zone.has-file {
+      border-color: #4caf82;
+      background: rgba(76,175,130,0.08);
+    }
+    .input-zone input[type=file] { display: none; }
+    .zone-icon { font-size: 1.8rem; margin-bottom: 6px; }
+    .zone-label {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+    .zone-sub {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      margin-top: 3px;
+    }
 
-        .record-area.recording {
-            border-color: #e94560;
-            background: rgba(233,69,96,0.1);
-            animation: pulse 1s infinite;
-        }
+    /* Record pulse ring */
+    .pulse-ring {
+      position: absolute;
+      inset: 0;
+      border-radius: var(--radius-md);
+      border: 2px solid var(--red);
+      opacity: 0;
+      animation: pulse-ring 1.2s ease-out infinite;
+    }
+    @keyframes pulse-ring { 0%{opacity:.6;transform:scale(1)} 100%{opacity:0;transform:scale(1.06)} }
 
-        @keyframes pulse {
-            0% { box-shadow: 0 0 0 0 rgba(233,69,96,0.4); }
-            70% { box-shadow: 0 0 0 10px rgba(233,69,96,0); }
-            100% { box-shadow: 0 0 0 0 rgba(233,69,96,0); }
-        }
+    /* ── Timer ── */
+    .record-timer {
+      font-size: 1.3rem;
+      font-weight: 800;
+      color: var(--red);
+      font-variant-numeric: tabular-nums;
+      margin-top: 6px;
+      display: none;
+    }
 
-        .record-icon { font-size: 2.5rem; margin-bottom: 8px; }
+    /* ── Analyze button ── */
+    .btn-analyze {
+      width: 100%;
+      padding: 16px;
+      margin-top: 16px;
+      border: none;
+      border-radius: var(--radius-md);
+      background: linear-gradient(135deg, #6c63ff, #a855f7);
+      color: white;
+      font-family: 'Inter', sans-serif;
+      font-size: 0.95rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      cursor: pointer;
+      transition: all 0.25s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      box-shadow: 0 0 0 0 var(--accent-glow);
+    }
+    .btn-analyze:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 30px var(--accent-glow);
+    }
+    .btn-analyze:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+    .btn-analyze.loading {
+      background: linear-gradient(135deg, #3d3880, #6b3fa0);
+    }
 
-        .record-text {
-            color: rgba(255,255,255,0.7);
-            font-size: 0.85rem;
-        }
+    /* Spinner */
+    .spinner {
+      width: 18px; height: 18px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
 
-        .timer {
-            font-size: 1.5rem;
-            font-weight: bold;
-            color: #e94560;
-            margin-top: 5px;
-            display: none;
-        }
+    /* ── Result card ── */
+    #result-card { display: none; }
 
-        .btn {
-            background: linear-gradient(90deg, #e94560, #c23152);
-            color: white;
-            border: none;
-            padding: 14px 40px;
-            border-radius: 50px;
-            font-size: 1rem;
-            cursor: pointer;
-            transition: all 0.3s;
-            width: 100%;
-            margin-top: 10px;
-        }
+    .emotion-hero {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      margin-bottom: 24px;
+    }
+    .emotion-emoji-wrap {
+      width: 80px; height: 80px;
+      border-radius: 50%;
+      background: var(--bg-card-hover);
+      border: 1px solid var(--border-bright);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.4rem;
+      flex-shrink: 0;
+      animation: pop 0.4s cubic-bezier(.175,.885,.32,1.275);
+    }
+    @keyframes pop { from{transform:scale(0.5);opacity:0} to{transform:scale(1);opacity:1} }
 
-        .btn:hover { transform: translateY(-2px); opacity: 0.9; }
-        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .emotion-text-wrap { flex: 1; }
+    .emotion-name {
+      font-size: 2rem;
+      font-weight: 800;
+      text-transform: capitalize;
+      letter-spacing: -0.02em;
+      line-height: 1;
+      margin-bottom: 6px;
+    }
+    .emotion-meta {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .meta-badge {
+      background: var(--bg-card-hover);
+      border: 1px solid var(--border);
+      border-radius: 50px;
+      padding: 3px 10px;
+      font-size: 0.72rem;
+      font-weight: 600;
+    }
 
-        .result {
-            margin-top: 30px;
-            padding: 25px;
-            background: rgba(255,255,255,0.05);
-            border-radius: 15px;
-            display: none;
-        }
+    /* Top confidence big indicator */
+    .top-confidence {
+      background: var(--bg-card-hover);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+    .top-conf-label { font-size: 0.78rem; color: var(--text-secondary); font-weight: 500; }
+    .top-conf-value {
+      font-size: 1.6rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+    .conf-bar-bg {
+      height: 4px;
+      background: var(--border);
+      border-radius: 4px;
+      margin-top: 8px;
+      overflow: hidden;
+    }
+    .conf-bar-fill {
+      height: 4px;
+      border-radius: 4px;
+      width: 0;
+      transition: width 1s cubic-bezier(.77,0,.18,1);
+    }
 
-        .emotion-label {
-            font-size: 2.5rem;
-            font-weight: bold;
-            text-transform: capitalize;
-            margin: 10px 0;
-        }
+    /* Confidence bars */
+    .conf-section-label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 14px;
+    }
+    .conf-bar-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .conf-emotion-label {
+      width: 72px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: capitalize;
+      color: var(--text-secondary);
+      text-align: right;
+      flex-shrink: 0;
+    }
+    .conf-emotion-label.top { color: var(--text-primary); font-weight: 700; }
+    .bar-track {
+      flex: 1;
+      height: 8px;
+      background: rgba(255,255,255,0.06);
+      border-radius: 50px;
+      overflow: hidden;
+    }
+    .bar-fill-anim {
+      height: 100%;
+      border-radius: 50px;
+      width: 0;
+      transition: width 1s cubic-bezier(.77,0,.18,1);
+      position: relative;
+    }
+    .bar-fill-anim::after {
+      content: '';
+      position: absolute;
+      right: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: inherit;
+      box-shadow: 0 0 8px 2px currentColor;
+      opacity: 0.8;
+    }
+    .conf-pct {
+      width: 42px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-align: right;
+      flex-shrink: 0;
+    }
 
-        .emotion-icons { font-size: 3rem; margin: 10px 0; }
+    /* ── History ── */
+    #history-card { display: none; }
+    .history-list {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .history-chip {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--bg-card-hover);
+      border: 1px solid var(--border);
+      border-radius: 50px;
+      padding: 6px 14px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      animation: slide-in 0.3s ease;
+      cursor: default;
+      transition: border-color 0.2s;
+    }
+    .history-chip:hover { border-color: var(--border-bright); color: var(--text-primary); }
+    .history-chip .chip-time { font-size: 0.68rem; color: var(--text-muted); font-weight: 400; }
+    @keyframes slide-in { from{transform:translateY(6px);opacity:0} to{transform:translateY(0);opacity:1} }
 
-        .status {
-            color: rgba(255,255,255,0.6);
-            font-size: 0.9rem;
-            margin-top: 5px;
-            margin-bottom: 20px;
-        }
+    /* ── Stats row ── */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .stat-box {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 16px;
+      text-align: center;
+    }
+    .stat-value {
+      font-size: 1.5rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      background: linear-gradient(135deg, #a89cff, #f0f4ff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .stat-label { font-size: 0.7rem; color: var(--text-muted); font-weight: 500; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.06em; }
 
-        .file-name {
-            color: #e94560;
-            font-size: 0.85rem;
-            margin-top: 10px;
-        }
+    /* ── Footer ── */
+    footer {
+      text-align: center;
+      margin-top: 36px;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+    footer a { color: var(--accent); text-decoration: none; }
 
-        .chart-title {
-            font-size: 0.95rem;
-            color: rgba(255,255,255,0.7);
-            margin-bottom: 15px;
-            text-align: left;
-        }
+    /* ── Audio playback ── */
+    #audio-player-wrap { display: none; margin-top: 12px; }
+    #audio-player {
+      width: 100%;
+      height: 36px;
+      filter: invert(0.85) hue-rotate(220deg);
+      border-radius: 8px;
+    }
 
-        .bar-container {
-            margin: 8px 0;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
+    /* ── Drag over ── */
+    .input-zone.drag-over {
+      border-color: var(--accent);
+      background: rgba(108,99,255,0.1);
+      transform: scale(1.01);
+    }
 
-        .bar-label {
-            width: 80px;
-            text-align: right;
-            font-size: 0.85rem;
-            color: rgba(255,255,255,0.8);
-            text-transform: capitalize;
-        }
+    /* ── Toast ── */
+    .toast {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: rgba(30,30,50,0.95);
+      border: 1px solid var(--border-bright);
+      border-radius: 50px;
+      padding: 10px 22px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      backdrop-filter: blur(20px);
+      z-index: 999;
+      opacity: 0;
+      transition: all 0.3s ease;
+      white-space: nowrap;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
-        .bar-wrap {
-            flex: 1;
-            background: rgba(255,255,255,0.1);
-            border-radius: 50px;
-            height: 22px;
-            overflow: hidden;
-        }
-
-        .bar-fill {
-            height: 100%;
-            border-radius: 50px;
-            transition: width 1s ease;
-            width: 0%;
-        }
-
-        .bar-score {
-            width: 45px;
-            font-size: 0.8rem;
-            color: rgba(255,255,255,0.7);
-            text-align: left;
-        }
-
-        .divider {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin: 15px 0;
-            color: rgba(255,255,255,0.4);
-            font-size: 0.85rem;
-        }
-
-        .divider::before, .divider::after {
-            content: '';
-            flex: 1;
-            height: 1px;
-            background: rgba(255,255,255,0.15);
-        }
-    </style>
+    /* ── Responsive ── */
+    @media (max-width: 520px) {
+      .input-row { grid-template-columns: 1fr; }
+      .stats-row { grid-template-columns: 1fr 1fr; }
+      .stats-row .stat-box:last-child { grid-column: 1 / -1; }
+      .emotion-hero { flex-direction: column; text-align: center; }
+      .emotion-meta { justify-content: center; }
+    }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Speech Emotion Recognition</h1>
-        <p class="subtitle">Upload a file or record your voice to detect emotion</p>
+  <div class="orb orb-1" id="orb1"></div>
+  <div class="orb orb-2" id="orb2"></div>
 
-        <div class="input-section">
-            <!-- Upload -->
-            <div class="upload-area" onclick="document.getElementById('fileInput').click()">
-                <div class="upload-icon">📁</div>
-                <div class="upload-text">Click to upload a .wav file</div>
-                <input type="file" id="fileInput" accept=".wav" onchange="handleFile(event)">
-                <div class="file-name" id="fileName"></div>
-            </div>
+  <div class="page">
 
-            <div class="divider" style="flex-direction:column; margin:0;">OR</div>
+    <!-- Header -->
+    <header>
+      <div class="logo-badge">
+        <div class="logo-dot"></div>
+        AI-Powered · Speech Analysis
+      </div>
+      <h1>SpeechSense</h1>
+      <p class="subtitle">Upload or record your voice — detect emotion instantly with AI</p>
+    </header>
 
-            <!-- Record -->
-            <div class="record-area" id="recordArea" onclick="toggleRecord()">
-                <div class="record-icon" id="recordIcon">🎙️</div>
-                <div class="record-text" id="recordText">Click to record 3 seconds</div>
-                <div class="timer" id="timer">3</div>
-            </div>
-        </div>
-
-        <button class="btn" id="predictBtn" onclick="predict()" disabled>
-            Analyze Emotion
-        </button>
-
-        <div class="result" id="result">
-            <div class="emotion-icons" id="emotionIcon"></div>
-            <div class="emotion-label" id="emotionLabel"></div>
-            <div class="status" id="statusText">Emotion detected successfully!</div>
-            <div class="chart-title">Confidence scores for all emotions:</div>
-            <div id="barChart"></div>
-        </div>
+    <!-- Stats row -->
+    <div class="stats-row">
+      <div class="stat-box">
+        <div class="stat-value" id="stat-total">0</div>
+        <div class="stat-label">Analyzed</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-value" id="stat-top">–</div>
+        <div class="stat-label">Top Emotion</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-value">8</div>
+        <div class="stat-label">Emotions</div>
+      </div>
     </div>
 
-    <script>
-        const emotionIcons = {
-            angry: "😠", calm: "😌", happy: "😊",
-            sad: "😢", fearful: "😨", disgust: "🤢",
-            surprised: "😲", neutral: "😐"
-        };
+    <!-- Input card -->
+    <div class="card">
+      <div class="card-label">🎙 Voice Input</div>
 
-        const emotionColors = {
-            angry: "#e94560", calm: "#4ecdc4", happy: "#ffe66d",
-            sad: "#4a90d9", fearful: "#9b59b6", disgust: "#2ecc71",
-            surprised: "#f39c12", neutral: "#95a5a6"
-        };
+      <!-- Waveform -->
+      <div id="waveform-wrap">
+        <div class="waveform-idle" id="idle-bars">
+          <span></span><span></span><span></span><span></span><span></span>
+          <span></span><span></span><span></span><span></span><span></span>
+          <span></span><span></span>
+        </div>
+        <canvas id="waveform-canvas" style="display:none;"></canvas>
+      </div>
 
-        const emotionBg = {
-            angry: "linear-gradient(135deg, #3a0a0a, #6b1a1a, #8b0000)",
-            calm: "linear-gradient(135deg, #0a2a2a, #1a4a4a, #006060)",
-            happy: "linear-gradient(135deg, #2a2a00, #4a4a00, #6b6b00)",
-            sad: "linear-gradient(135deg, #0a0a3a, #1a1a6b, #00008b)",
-            fearful: "linear-gradient(135deg, #1a0a2a, #3a1a5a, #4b0082)",
-            disgust: "linear-gradient(135deg, #0a2a0a, #1a4a1a, #006400)",
-            surprised: "linear-gradient(135deg, #2a1a00, #4a3000, #8b4500)",
-            neutral: "linear-gradient(135deg, #1a1a2e, #16213e, #0f3460)"
-        };
+      <!-- Audio player -->
+      <div id="audio-player-wrap">
+        <audio id="audio-player" controls></audio>
+      </div>
 
-        let selectedFile = null;
-        let mediaRecorder = null;
-        let isRecording = false;
-        let recordedBlob = null;
+      <!-- Upload + Record -->
+      <div class="input-row">
+        <!-- Upload -->
+        <div class="input-zone" id="upload-zone"
+             onclick="document.getElementById('file-input').click()"
+             ondragover="onDragOver(event)"
+             ondragleave="onDragLeave(event)"
+             ondrop="onDrop(event)">
+          <input type="file" id="file-input" accept=".wav,audio/*" onchange="handleFile(event)" />
+          <div class="zone-icon" id="upload-icon">📁</div>
+          <div class="zone-label" id="upload-label">Upload Audio</div>
+          <div class="zone-sub" id="upload-sub">WAV, MP3 · drag & drop</div>
+        </div>
 
-        function handleFile(event) {
-            selectedFile = event.target.files[0];
-            recordedBlob = null;
-            if (selectedFile) {
-                document.getElementById("fileName").textContent = selectedFile.name;
-                document.getElementById("predictBtn").disabled = false;
-                document.getElementById("recordText").textContent = "Click to record 3 seconds";
-                document.getElementById("recordIcon").textContent = "🎙️";
-            }
-        }
+        <!-- Record -->
+        <div class="input-zone" id="record-zone" onclick="toggleRecord()">
+          <div class="zone-icon" id="record-icon">🎙️</div>
+          <div class="zone-label" id="record-label">Record Voice</div>
+          <div class="zone-sub" id="record-sub">Tap to start</div>
+          <div class="record-timer" id="record-timer">0:00</div>
+        </div>
+      </div>
 
-        async function toggleRecord() {
-            if (isRecording) return;
+      <!-- Analyze -->
+      <button class="btn-analyze" id="analyze-btn" onclick="analyze()" disabled>
+        <span id="btn-icon">✦</span>
+        <span id="btn-text">Analyze Emotion</span>
+      </button>
+    </div>
 
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                isRecording = true;
+    <!-- Result card -->
+    <div class="card" id="result-card">
+      <div class="card-label">🧠 Analysis Result</div>
 
-                const recordArea = document.getElementById("recordArea");
-                const recordText = document.getElementById("recordText");
-                const recordIcon = document.getElementById("recordIcon");
-                const timerEl = document.getElementById("timer");
-                const predictBtn = document.getElementById("predictBtn");
+      <!-- Emotion hero -->
+      <div class="emotion-hero">
+        <div class="emotion-emoji-wrap" id="result-emoji">😐</div>
+        <div class="emotion-text-wrap">
+          <div class="emotion-name" id="result-name">Neutral</div>
+          <div class="emotion-meta">
+            <span class="meta-badge" id="model-badge">Ensemble Model</span>
+            <span class="meta-badge" id="time-badge">Just now</span>
+          </div>
+        </div>
+      </div>
 
-                recordArea.classList.add("recording");
-                recordIcon.textContent = "⏺️";
-                timerEl.style.display = "block";
-                predictBtn.disabled = true;
+      <!-- Top confidence -->
+      <div class="top-confidence">
+        <div>
+          <div class="top-conf-label">Top Confidence</div>
+          <div class="conf-bar-bg"><div class="conf-bar-fill" id="top-bar-fill"></div></div>
+        </div>
+        <div class="top-conf-value" id="top-conf-val">–</div>
+      </div>
 
-                // Countdown timer
-                let count = 3;
-                timerEl.textContent = count;
-                const countdown = setInterval(() => {
-                    count--;
-                    timerEl.textContent = count;
-                    if (count <= 0) clearInterval(countdown);
-                }, 1000);
+      <!-- All confidence bars -->
+      <div class="conf-section-label">All Emotion Scores</div>
+      <div id="conf-bars"></div>
+    </div>
 
-                // Record audio
-                const chunks = [];
-                mediaRecorder = new MediaRecorder(stream);
-                mediaRecorder.ondataavailable = e => chunks.push(e.data);
-                mediaRecorder.onstop = () => {
-                    recordedBlob = new Blob(chunks, { type: "audio/wav" });
-                    selectedFile = null;
-                    document.getElementById("fileName").textContent = "";
-                    recordArea.classList.remove("recording");
-                    recordIcon.textContent = "✅";
-                    recordText.textContent = "Recording done! Click Analyze";
-                    timerEl.style.display = "none";
-                    predictBtn.disabled = false;
-                    isRecording = false;
-                    stream.getTracks().forEach(track => track.stop());
-                };
+    <!-- History card -->
+    <div class="card" id="history-card">
+      <div class="card-label" style="margin-bottom:14px;">🕓 Prediction History</div>
+      <div class="history-list" id="history-list"></div>
+    </div>
 
-                mediaRecorder.start();
-                setTimeout(() => mediaRecorder.stop(), 3000);
+    <footer>
+      Built by <strong>Sabarish</strong> · ECE Student ·
+      <a href="https://github.com/sabarishvl07/speech-emotion-recognition" target="_blank">GitHub ↗</a>
+      · RAVDESS Dataset · 71.88% Accuracy
+    </footer>
+  </div>
 
-            } catch (err) {
-                alert("Microphone access denied! Please allow microphone access.");
-                isRecording = false;
-            }
-        }
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
 
-        function renderBarChart(scores, topEmotion) {
-            const chart = document.getElementById("barChart");
-            chart.innerHTML = "";
-            const sorted = Object.entries(scores).sort((a, b) => b[1] - a[1]);
-            sorted.forEach(([emotion, score]) => {
-                const color = emotionColors[emotion] || "#e94560";
-                const isTop = emotion === topEmotion;
-                chart.innerHTML += `
-                    <div class="bar-container">
-                        <div class="bar-label" style="${isTop ? 'font-weight:bold;color:white;' : ''}">${emotion}</div>
-                        <div class="bar-wrap">
-                            <div class="bar-fill" id="bar-${emotion}" style="background:${color};opacity:${isTop ? '1' : '0.5'}"></div>
-                        </div>
-                        <div class="bar-score">${score.toFixed(1)}%</div>
-                    </div>`;
-            });
-            setTimeout(() => {
-                sorted.forEach(([emotion, score]) => {
-                    const bar = document.getElementById(`bar-${emotion}`);
-                    if (bar) bar.style.width = score + "%";
-                });
-            }, 100);
-        }
+<script>
+  /* ── Constants ── */
+  const API = "https://speech-emotion-recognition-dd7d.onrender.com";
 
-        async function predict() {
-            const btn = document.getElementById("predictBtn");
-            btn.textContent = "Analyzing...";
-            btn.disabled = true;
+  const EMOTIONS = {
+    angry:    { icon: "😠", color: "#ff4d6d" },
+    calm:     { icon: "😌", color: "#4ecdc4" },
+    happy:    { icon: "😊", color: "#ffd166" },
+    sad:      { icon: "😢", color: "#4a90d9" },
+    fearful:  { icon: "😨", color: "#9b59b6" },
+    disgust:  { icon: "🤢", color: "#2ecc71" },
+    surprised:{ icon: "😲", color: "#f39c12" },
+    neutral:  { icon: "😐", color: "#95a5a6" }
+  };
 
-            const formData = new FormData();
+  const BG_COLORS = {
+    angry:    ["#2d0a10","#c0253e"],
+    calm:     ["#061e1e","#1a6060"],
+    happy:    ["#1e1a00","#706000"],
+    sad:      ["#070d2a","#1a2e80"],
+    fearful:  ["#12081e","#441870"],
+    disgust:  ["#081a08","#1a5a1a"],
+    surprised:["#1a1000","#7a4200"],
+    neutral:  ["#070b14","#1a1f38"]
+  };
 
-            if (recordedBlob) {
-                formData.append("file", recordedBlob, "recording.wav");
-            } else if (selectedFile) {
-                formData.append("file", selectedFile);
-            } else {
-                alert("Please upload a file or record your voice!");
-                btn.textContent = "Analyze Emotion";
-                btn.disabled = false;
-                return;
-            }
+  /* ── State ── */
+  let selectedFile = null;
+  let recordedBlob = null;
+  let mediaRecorder = null;
+  let isRecording = false;
+  let recordTimerInterval = null;
+  let recordSeconds = 0;
+  let analyserNode = null;
+  let animFrameId = null;
 
-            try {
-                const response = await fetch("https://speech-emotion-recognition-dd7d.onrender.com/predict", {
-                    method: "POST",
-                    body: formData
-                });
+  /* ── Stats from localStorage ── */
+  let stats = JSON.parse(localStorage.getItem("ser_stats") || '{"total":0,"emotions":{}}');
+  let history = JSON.parse(localStorage.getItem("ser_history") || "[]");
+  renderStats();
+  renderHistory();
 
-                const data = await response.json();
-                const emotion = data.emotion;
-                const scores = data.confidence_scores;
+  /* ─────────── FILE UPLOAD ─────────── */
+  function handleFile(e) {
+    const f = e.target.files[0];
+    if (!f) return;
+    setFile(f);
+  }
+  function setFile(f) {
+    selectedFile = f;
+    recordedBlob = null;
+    const zone = document.getElementById("upload-zone");
+    zone.classList.add("has-file");
+    document.getElementById("upload-icon").textContent = "✅";
+    document.getElementById("upload-label").textContent = truncate(f.name, 18);
+    document.getElementById("upload-sub").textContent = formatBytes(f.size);
+    document.getElementById("analyze-btn").disabled = false;
+    // Show audio player
+    const url = URL.createObjectURL(f);
+    showAudioPlayer(url);
+    resetRecord();
+    showToast("File ready — click Analyze!");
+  }
 
-                document.getElementById("emotionIcon").textContent = emotionIcons[emotion] || "🎭";
-                document.getElementById("emotionLabel").textContent = emotion;
-                document.getElementById("result").style.display = "block";
-                document.body.style.background = emotionBg[emotion] || emotionBg.neutral;
-                renderBarChart(scores, emotion);
+  function onDragOver(e) {
+    e.preventDefault();
+    document.getElementById("upload-zone").classList.add("drag-over");
+  }
+  function onDragLeave(e) {
+    document.getElementById("upload-zone").classList.remove("drag-over");
+  }
+  function onDrop(e) {
+    e.preventDefault();
+    document.getElementById("upload-zone").classList.remove("drag-over");
+    const f = e.dataTransfer.files[0];
+    if (f) setFile(f);
+  }
 
-            } catch (error) {
-                alert("Error connecting to API. Make sure the backend is running!");
-            }
+  function showAudioPlayer(url) {
+    const wrap = document.getElementById("audio-player-wrap");
+    const player = document.getElementById("audio-player");
+    player.src = url;
+    wrap.style.display = "block";
+  }
 
-            btn.textContent = "Analyze Emotion";
-            btn.disabled = false;
-        }
-    </script>
+  /* ─────────── RECORDING ─────────── */
+  async function toggleRecord() {
+    if (isRecording) {
+      stopRecord();
+    } else {
+      await startRecord();
+    }
+  }
+
+  async function startRecord() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      isRecording = true;
+
+      // Waveform visualizer
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      const ctx = new AudioCtx();
+      const source = ctx.createMediaStreamSource(stream);
+      analyserNode = ctx.createAnalyser();
+      analyserNode.fftSize = 512;
+      source.connect(analyserNode);
+      startWaveform();
+
+      // UI
+      const zone = document.getElementById("record-zone");
+      zone.classList.add("active");
+      zone.innerHTML = `
+        <div class="pulse-ring"></div>
+        <div class="zone-icon" id="record-icon">⏹️</div>
+        <div class="zone-label" id="record-label">Recording...</div>
+        <div class="zone-sub" id="record-sub">Tap to stop</div>
+        <div class="record-timer" id="record-timer" style="display:block;">0:00</div>
+      `;
+      document.getElementById("analyze-btn").disabled = true;
+      document.getElementById("upload-zone").classList.remove("has-file");
+      document.getElementById("upload-icon").textContent = "📁";
+      document.getElementById("upload-label").textContent = "Upload Audio";
+      document.getElementById("upload-sub").textContent = "WAV, MP3 · drag & drop";
+      document.getElementById("audio-player-wrap").style.display = "none";
+
+      // Timer
+      recordSeconds = 0;
+      recordTimerInterval = setInterval(() => {
+        recordSeconds++;
+        document.getElementById("record-timer").textContent = formatTime(recordSeconds);
+      }, 1000);
+
+      // MediaRecorder
+      const chunks = [];
+      mediaRecorder = new MediaRecorder(stream);
+      mediaRecorder.ondataavailable = e => chunks.push(e.data);
+      mediaRecorder.onstop = () => {
+        recordedBlob = new Blob(chunks, { type: "audio/webm" });
+        selectedFile = null;
+        stream.getTracks().forEach(t => t.stop());
+        stopWaveform();
+        showAudioPlayer(URL.createObjectURL(recordedBlob));
+
+        document.getElementById("record-zone").innerHTML = `
+          <div class="zone-icon">✅</div>
+          <div class="zone-label">Recording saved</div>
+          <div class="zone-sub">${formatTime(recordSeconds)} · tap to re-record</div>
+        `;
+        document.getElementById("record-zone").classList.remove("active");
+        document.getElementById("analyze-btn").disabled = false;
+        isRecording = false;
+        showToast(`Recorded ${formatTime(recordSeconds)} — click Analyze!`);
+      };
+
+      mediaRecorder.start();
+    } catch (err) {
+      showToast("⚠️ Microphone access denied — check browser permissions");
+      isRecording = false;
+    }
+  }
+
+  function stopRecord() {
+    clearInterval(recordTimerInterval);
+    if (mediaRecorder && mediaRecorder.state !== "inactive") mediaRecorder.stop();
+  }
+
+  function resetRecord() {
+    isRecording = false;
+    clearInterval(recordTimerInterval);
+    if (mediaRecorder && mediaRecorder.state !== "inactive") mediaRecorder.stop();
+    stopWaveform();
+    document.getElementById("record-zone").classList.remove("active");
+    document.getElementById("record-zone").innerHTML = `
+      <div class="zone-icon" id="record-icon">🎙️</div>
+      <div class="zone-label" id="record-label">Record Voice</div>
+      <div class="zone-sub" id="record-sub">Tap to start</div>
+      <div class="record-timer" id="record-timer">0:00</div>
+    `;
+  }
+
+  /* ─────────── WAVEFORM ─────────── */
+  function startWaveform() {
+    const canvas = document.getElementById("waveform-canvas");
+    const idle = document.getElementById("idle-bars");
+    idle.style.display = "none";
+    canvas.style.display = "block";
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = canvas.offsetWidth * dpr;
+    canvas.height = 70 * dpr;
+    const gfx = canvas.getContext("2d");
+    gfx.scale(dpr, dpr);
+    const W = canvas.offsetWidth, H = 70;
+    const data = new Uint8Array(analyserNode.frequencyBinCount);
+
+    function draw() {
+      animFrameId = requestAnimationFrame(draw);
+      analyserNode.getByteTimeDomainData(data);
+      gfx.clearRect(0, 0, W, H);
+      gfx.lineWidth = 2;
+      const grad = gfx.createLinearGradient(0, 0, W, 0);
+      grad.addColorStop(0, "#6c63ff");
+      grad.addColorStop(0.5, "#ff4d6d");
+      grad.addColorStop(1, "#6c63ff");
+      gfx.strokeStyle = grad;
+      gfx.beginPath();
+      const slice = W / data.length;
+      let x = 0;
+      for (let i = 0; i < data.length; i++) {
+        const v = data[i] / 128.0;
+        const y = (v * H) / 2;
+        i === 0 ? gfx.moveTo(x, y) : gfx.lineTo(x, y);
+        x += slice;
+      }
+      gfx.stroke();
+    }
+    draw();
+  }
+
+  function stopWaveform() {
+    if (animFrameId) cancelAnimationFrame(animFrameId);
+    analyserNode = null;
+    document.getElementById("waveform-canvas").style.display = "none";
+    document.getElementById("idle-bars").style.display = "flex";
+  }
+
+  /* ─────────── ANALYZE ─────────── */
+  async function analyze() {
+    const btn = document.getElementById("analyze-btn");
+    btn.classList.add("loading");
+    btn.disabled = true;
+    document.getElementById("btn-icon").innerHTML = '<div class="spinner"></div>';
+    document.getElementById("btn-text").textContent = "Analyzing…";
+
+    const formData = new FormData();
+    if (recordedBlob) {
+      formData.append("file", recordedBlob, "recording.webm");
+    } else if (selectedFile) {
+      formData.append("file", selectedFile);
+    } else {
+      showToast("⚠️ No audio selected");
+      resetBtn();
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API}/predict`, { method: "POST", body: formData });
+      if (!res.ok) throw new Error(`Server error: ${res.status}`);
+      const data = await res.json();
+      showResult(data);
+    } catch (err) {
+      showToast("❌ Could not reach API — is the server running?");
+      console.error(err);
+    }
+
+    resetBtn();
+  }
+
+  function resetBtn() {
+    const btn = document.getElementById("analyze-btn");
+    btn.classList.remove("loading");
+    btn.disabled = false;
+    document.getElementById("btn-icon").textContent = "✦";
+    document.getElementById("btn-text").textContent = "Analyze Emotion";
+  }
+
+  /* ─────────── RESULT ─────────── */
+  function showResult(data) {
+    const emotion = (data.emotion || "neutral").toLowerCase();
+    const scores = data.confidence_scores || {};
+    const info = EMOTIONS[emotion] || { icon: "🎭", color: "#6c63ff" };
+
+    // Update background
+    const [c1, c2] = BG_COLORS[emotion] || BG_COLORS.neutral;
+    document.body.style.background = `radial-gradient(ellipse at top left, ${c2}55 0%, ${c1} 60%)`;
+    document.getElementById("orb1").style.background = info.color;
+    document.getElementById("orb2").style.background = c2;
+
+    // Hero
+    document.getElementById("result-emoji").textContent = info.icon;
+    const nameEl = document.getElementById("result-name");
+    nameEl.textContent = capitalize(emotion);
+    nameEl.style.color = info.color;
+    document.getElementById("time-badge").textContent = new Date().toLocaleTimeString();
+
+    // Top confidence
+    const topScore = scores[emotion] ?? Object.values(scores).reduce((a,b)=>a>b?a:b,0);
+    document.getElementById("top-conf-val").textContent = topScore.toFixed(1) + "%";
+    document.getElementById("top-conf-val").style.color = info.color;
+    const fillEl = document.getElementById("top-bar-fill");
+    fillEl.style.background = info.color;
+    setTimeout(() => { fillEl.style.width = topScore + "%"; }, 80);
+
+    // Bars
+    renderBars(scores, emotion, info.color);
+
+    // Show result card
+    const card = document.getElementById("result-card");
+    card.style.display = "block";
+    card.scrollIntoView({ behavior: "smooth", block: "nearest" });
+
+    // History + stats
+    addHistory(emotion, info.icon, topScore);
+    updateStats(emotion);
+  }
+
+  function renderBars(scores, topEmotion, topColor) {
+    const container = document.getElementById("conf-bars");
+    container.innerHTML = "";
+    const sorted = Object.entries(scores).sort((a, b) => b[1] - a[1]);
+    sorted.forEach(([emo, score], i) => {
+      const info = EMOTIONS[emo] || { icon: "🎭", color: "#6c63ff" };
+      const isTop = emo === topEmotion;
+      const row = document.createElement("div");
+      row.className = "conf-bar-row";
+      row.innerHTML = `
+        <div class="conf-emotion-label ${isTop ? "top" : ""}">${info.icon} ${emo}</div>
+        <div class="bar-track">
+          <div class="bar-fill-anim" id="bfill-${emo}"
+               style="background:${isTop ? info.color : info.color+'77'};"></div>
+        </div>
+        <div class="conf-pct">${score.toFixed(1)}%</div>
+      `;
+      container.appendChild(row);
+      setTimeout(() => {
+        const el = document.getElementById(`bfill-${emo}`);
+        if (el) el.style.width = score + "%";
+      }, 100 + i * 60);
+    });
+  }
+
+  /* ─────────── HISTORY ─────────── */
+  function addHistory(emotion, icon, score) {
+    const now = new Date();
+    const time = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    history.unshift({ emotion, icon, score: score.toFixed(1), time });
+    if (history.length > 8) history.pop();
+    localStorage.setItem("ser_history", JSON.stringify(history));
+    renderHistory();
+  }
+
+  function renderHistory() {
+    if (!history.length) return;
+    const card = document.getElementById("history-card");
+    const list = document.getElementById("history-list");
+    card.style.display = "block";
+    list.innerHTML = "";
+    history.forEach(h => {
+      const chip = document.createElement("div");
+      chip.className = "history-chip";
+      chip.innerHTML = `${h.icon} ${capitalize(h.emotion)} <span class="chip-time">${h.time}</span>`;
+      list.appendChild(chip);
+    });
+  }
+
+  /* ─────────── STATS ─────────── */
+  function updateStats(emotion) {
+    stats.total++;
+    stats.emotions[emotion] = (stats.emotions[emotion] || 0) + 1;
+    localStorage.setItem("ser_stats", JSON.stringify(stats));
+    renderStats();
+  }
+
+  function renderStats() {
+    document.getElementById("stat-total").textContent = stats.total;
+    if (Object.keys(stats.emotions).length) {
+      const top = Object.entries(stats.emotions).sort((a,b)=>b[1]-a[1])[0][0];
+      const info = EMOTIONS[top];
+      document.getElementById("stat-top").textContent = info ? info.icon : top;
+    }
+  }
+
+  /* ─────────── TOAST ─────────── */
+  let toastTimer;
+  function showToast(msg) {
+    const el = document.getElementById("toast");
+    el.textContent = msg;
+    el.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove("show"), 3000);
+  }
+
+  /* ─────────── UTILS ─────────── */
+  function formatTime(s) {
+    return `${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`;
+  }
+  function formatBytes(b) {
+    if (b < 1024) return b + " B";
+    if (b < 1048576) return (b/1024).toFixed(1) + " KB";
+    return (b/1048576).toFixed(1) + " MB";
+  }
+  function truncate(s, n) { return s.length > n ? s.slice(0, n) + "…" : s; }
+  function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+</script>
 </body>
 </html>
