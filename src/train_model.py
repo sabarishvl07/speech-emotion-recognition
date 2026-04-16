@@ -1,65 +1,129 @@
+import logging
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler, LabelEncoder
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier, VotingClassifier
 from sklearn.svm import SVC
-from sklearn.metrics import accuracy_score, classification_report
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 import joblib
+import matplotlib.pyplot as plt
+import seaborn as sns
 
-# Load the dataset
-print("Loading dataset...")
+# ─── Logging Setup ───────────────────────────────────────────────────────────
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S"
+)
+logger = logging.getLogger(__name__)
+
+# ─── Load Dataset ─────────────────────────────────────────────────────────────
+logger.info("Loading dataset...")
 df = pd.read_csv("data/features.csv")
 
-# Separate features and labels
 X = df.drop("emotion", axis=1).values
-y = df["emotion"].values
+y_raw = df["emotion"].values
 
-print(f"Dataset shape: {X.shape}")
-print(f"Emotions: {np.unique(y)}")
+le = LabelEncoder()
+y = le.fit_transform(y_raw)
 
-# Split into train and test sets
+logger.info(f"Dataset shape : {X.shape}")
+logger.info(f"Emotions      : {list(le.classes_)}")
+logger.info(f"Class counts  :\n{pd.Series(y_raw).value_counts()}\n")
+
+# ─── Train / Test Split ───────────────────────────────────────────────────────
 X_train, X_test, y_train, y_test = train_test_split(
     X, y, test_size=0.2, random_state=42, stratify=y
 )
+logger.info(f"Training samples : {len(X_train)}")
+logger.info(f"Testing  samples : {len(X_test)}\n")
 
-print(f"Training samples: {len(X_train)}")
-print(f"Testing samples: {len(X_test)}")
-
-# Normalize the features
+# ─── Feature Scaling ──────────────────────────────────────────────────────────
 scaler = StandardScaler()
 X_train = scaler.fit_transform(X_train)
-X_test = scaler.transform(X_test)
+X_test  = scaler.transform(X_test)
 
-# Train SVM model
-print("\nTraining SVM model...")
-model = SVC(kernel="rbf", C=10, gamma="scale", random_state=42)
+# ─── Handle Class Imbalance with SMOTE (fixes neutral underrepresentation) ────
+try:
+    from imblearn.over_sampling import SMOTE
+    logger.info("Applying SMOTE to balance classes...")
+    smote = SMOTE(random_state=42)
+    X_train, y_train = smote.fit_resample(X_train, y_train)
+    logger.info(f"After SMOTE - Training samples: {len(X_train)}")
+    logger.info(f"New class distribution:\n{pd.Series(le.inverse_transform(y_train)).value_counts()}\n")
+except ImportError:
+    logger.warning("imbalanced-learn not installed. Running without SMOTE.")
+    logger.warning("Install with: pip install imbalanced-learn\n")
+
+# ─── Voting Ensemble (RF + GB + SVM) ─────────────────────────────────────────
+logger.info("Building Voting Ensemble (RandomForest + GradientBoosting + SVM)...")
+
+rf = RandomForestClassifier(
+    n_estimators=300,
+    max_depth=None,
+    min_samples_split=2,
+    class_weight='balanced',
+    random_state=42,
+    n_jobs=-1
+)
+
+gb = GradientBoostingClassifier(
+    n_estimators=200,
+    learning_rate=0.05,
+    max_depth=5,
+    subsample=0.8,
+    random_state=42
+)
+
+svm = SVC(
+    kernel='rbf',
+    C=100,
+    gamma='scale',
+    class_weight='balanced',
+    probability=True,     # needed for soft voting
+    random_state=42
+)
+
+model = VotingClassifier(
+    estimators=[('rf', rf), ('gb', gb), ('svm', svm)],
+    voting='soft',        # average predicted probabilities
+    n_jobs=-1
+)
+
+logger.info("Training ensemble (this takes 2-5 minutes)...")
 model.fit(X_train, y_train)
+logger.info("Training complete!\n")
 
-# Evaluate the model
+# ─── Evaluation ───────────────────────────────────────────────────────────────
 y_pred = model.predict(X_test)
 accuracy = accuracy_score(y_test, y_pred)
-print(f"\nModel Accuracy: {accuracy * 100:.2f}%")
-print("\nDetailed Report:")
-print(classification_report(y_test, y_pred))
+logger.info(f"\n{'='*50}")
+logger.info(f"  Model Accuracy : {accuracy * 100:.2f}%")
+logger.info(f"{'='*50}\n")
+logger.info("Detailed Report:")
+logger.info(f"\n{classification_report(y_test, y_pred, target_names=le.classes_)}")
 
-# Save the model and scaler
-joblib.dump(model, "models/svm_model.pkl")
+# ─── Save Model, Scaler & Encoder ─────────────────────────────────────────────
+joblib.dump(model,  "models/ensemble_model.pkl")
 joblib.dump(scaler, "models/scaler.pkl")
-print("Model and scaler saved to models/ folder!")
-import matplotlib.pyplot as plt
-import seaborn as sns
-from sklearn.metrics import confusion_matrix
+joblib.dump(le,     "models/label_encoder.pkl")
+logger.info("Model saved   -> models/ensemble_model.pkl")
+logger.info("Scaler saved  -> models/scaler.pkl")
+logger.info("Encoder saved -> models/label_encoder.pkl")
 
-# Plot confusion matrix
-cm = confusion_matrix(y_test, y_pred)
-plt.figure(figsize=(10, 8))
+# ─── Confusion Matrix ─────────────────────────────────────────────────────────
+label_ints = sorted(np.unique(y))
+label_names = le.inverse_transform(label_ints)
+cm = confusion_matrix(y_test, y_pred, labels=label_ints)
+
+plt.figure(figsize=(12, 9))
 sns.heatmap(cm, annot=True, fmt="d", cmap="Blues",
-            xticklabels=np.unique(y),
-            yticklabels=np.unique(y))
-plt.title("Confusion Matrix")
+            xticklabels=label_names, yticklabels=label_names)
+plt.title(f"Confusion Matrix  --  Accuracy: {accuracy*100:.1f}%")
 plt.ylabel("Actual Emotion")
 plt.xlabel("Predicted Emotion")
 plt.tight_layout()
-plt.savefig("models/confusion_matrix.png")
+plt.savefig("models/confusion_matrix.png", dpi=150)
 plt.show()
-print("Confusion matrix saved to models/confusion_matrix.png")
+logger.info("Confusion matrix saved -> models/confusion_matrix.png")
